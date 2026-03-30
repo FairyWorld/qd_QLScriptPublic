@@ -1,62 +1,15 @@
+
 # QLScriptpublic
 
 本仓库魔改通知  smallfawnPushWhite白名单 smallfawnPushBlack黑名单 二选一
 ``````
 export smallfawnPushWhite="脚本名字@脚本名字2"
 ``````
-# 组织基地：QQ群1021185005
+
 # 青龙面板拉库命令
 ``````
 ql repo https://ghproxy.net/https://github.com/smallfawn/QLScriptPublic.git  backup  main
-``````
-自用青龙docker搭建命令
-``````
-#老版青龙(2.11.3)搭建命令
-docker run -dit \
-  -v $PWD/ql/config:/ql/config \
-  -v $PWD/ql/log:/ql/log \
-  -v $PWD/ql/db:/ql/db \
-  -v $PWD/ql/repo:/ql/repo \
-  -v $PWD/ql/raw:/ql/raw \
-  -v $PWD/ql/scripts:/ql/scripts \
-  -p 5700:5700 \
-  --name qinglong \
-  --hostname qinglong \
-  --restart unless-stopped \
-  yanyu.icu/whyour/qinglong:2.11
 
-version: '3'
-services:
-  qinglong:
-    image: yanyu.icu/whyour/qinglong:2.11
-    container_name: qinglong
-    hostname: qinglong
-    volumes:
-      - $PWD/ql/config:/ql/config
-      - $PWD/ql/log:/ql/log
-      - $PWD/ql/db:/ql/db
-      - $PWD/ql/repo:/ql/repo
-      - $PWD/ql/raw:/ql/raw
-      - $PWD/ql/scripts:/ql/scripts
-    ports:
-      - 5700:5700
-    restart: unless-stopped
-
-https://github.com/whyour/qinglong/tree/d6614acf66a243fddc494bcfcee44b3a55020591
-``````
-#最新版青龙搭建命令
-``````
-docker run -dit \
--v $PWD/ql:/ql/data \
--p 5600:5700 \
--e TZ=Asia/Shanghai \
---dns 114.114.114.114 \
---name qinglong \
---hostname qinglong \
---no-healthcheck \
---restart always \
-whyour/qinglong
-``````
 这里的脚本只是自己学习 js 的一个实践 仅用于测试和学习研究，禁止用于商业用途，不能保证其合法性，准确性，完整性和有效性，请根据情况自行判断.
 
 仓库内所有资源文件，禁止任何公众号、自媒体进行任何形式的转载、发布。
