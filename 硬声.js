@@ -42,8 +42,10 @@ class Task {
         this.valid = false;
         this.coins = 0;
         this.user_id = null;
+        this.userIdList = [];          // 用于关注任务
+        this.TASK_WAIT_TIME = 1000;    // 请求间隔
     }
-    async calculateSign(params, apiType) {
+    calculateSign(params, apiType) {
 
         params['Authorization'] = this.auth
         params['timestamp'] = Math.floor(new Date().getTime() / 1000)
@@ -80,11 +82,20 @@ class Task {
         ).ciphertext.toString(CryptoJS.enc.Base64) + '\n';
     }
     async run() {
-
-        await this.login()
-
-
+        console.log(`\n============= 账号[${this.name}] =============`)
+        await this.login();
+        if (!this.valid) return;
+        console.log(`----------- 签到 -----------`)
+        await $.wait(this.TASK_WAIT_TIME);
+        await this.getSignStatus();
+        console.log(`----------- 任务 -----------`)
+        await $.wait(this.TASK_WAIT_TIME);
+        await this.getTaskList();
+        console.log(`----------- 积分 -----------`)
+        await $.wait(this.TASK_WAIT_TIME);
+        await this.getInfo();
     }
+
     async login() {
         try {
             let pwd = this.EncryptCrypto(this.passwd)
@@ -92,14 +103,14 @@ class Task {
             let param = { 'account': this.name, 'password': pwd, 'device_id': this.device_id }
             let url = `https://ysapi.elecfans.com/api/sso/accountLogin`
             let body = $.jsonToStr(param, '&', true)
-            let headersParams = await this.calculateSign(param, 'ysapi')
+            let headersParams = this.calculateSign(param, 'ysapi')
             let options = {
                 method: 'post',
                 url,
                 headers: {
                     ...headersParams,
                     "User-Agent": defaultUserAgent,
-                    "Content-Type": "application/x-www-form-urlencoded" // 发送 urlencoded body 时通常需要
+                    "Content-Type": "application/x-www-form-urlencoded"
                 },
                 data: body
             }
@@ -120,6 +131,32 @@ class Task {
             console.log(e)
         } finally { }
     }
+
+    async getInfo() {
+        try {
+            let param = { 'user_id': this.user_id }
+            let url = `https://ysapi.elecfans.com/api/member/getInfo?${$.jsonToStr(param, '&')}`
+            let headersParams = this.calculateSign(param, 'ysapi')
+            let options = {
+                method: 'get',
+                url,
+                headers: {
+                    ...headersParams,
+                    "User-Agent": defaultUserAgent,
+                },
+            }
+            let { data: result } = await axios.request(options)
+            if (result.code == 0) {
+                this.coins = result.data.coins
+                console.log(`硬币：${this.coins}`)
+            } else {
+                console.log(`查询账户失败: ${result.message}`)
+            }
+        } catch (e) {
+            console.log(e)
+        }
+    }
+
     async getSignStatus() {
         try {
             let param = { 'date': '' }
@@ -139,7 +176,7 @@ class Task {
                     console.log(`今日已签到`)
                 } else {
                     console.log(`今日未签到`)
-                    await $.wait(TASK_WAIT_TIME);
+                    await $.wait(this.TASK_WAIT_TIME);
                     await this.signin();
                 }
             } else {
@@ -147,7 +184,7 @@ class Task {
             }
         } catch (e) {
             console.log(e)
-        } finally { }
+        }
     }
 
     async signin() {
@@ -174,23 +211,289 @@ class Task {
             }
         } catch (e) {
             console.log(e)
-        } finally { }
+        }
+    }
+
+    // ---------- 任务相关方法 ----------
+    async getTaskList() {
+        try {
+            let param = {}
+            let url = `https://yingsheng.elecfans.com/ysapi/wapi/activity/task/dailyList`
+            let headersParams = this.calculateSign(param, 'yingsheng')
+            let options = {
+                method: 'get',
+                url,
+                headers: {
+                    ...headersParams,
+                    "User-Agent": defaultUserAgent,
+                },
+            }
+            let { data: result } = await axios.request(options)
+            if (result.code == 0) {
+                await $.wait(this.TASK_WAIT_TIME);
+                await this.recommendList();   // 获取推荐用户列表用于关注任务
+                for (let key in result.data) {
+                    let task = result.data[key]
+                    if (task.title.includes('发布作品') || task.title.includes('作品播放量')) continue;
+                    if (task.title.indexOf('观看作品') > -1) {
+                        for (let idx in task.step) {
+                            if (task.step[idx].com_status == 12) {
+                                await $.wait(this.TASK_WAIT_TIME);
+                                await this.receiveCoin(task);
+                                break;
+                            } else if (task.step[idx].com_status != 13) {
+                                await $.wait(this.TASK_WAIT_TIME);
+                                await this.viewVideoAdd(idx);
+                                await $.wait(this.TASK_WAIT_TIME);
+                                await this.receiveCoin(task);
+                                break;
+                            }
+                        }
+                    } else {
+                        for (let idx in task.step) {
+                            let step = task.step[idx]
+                            if (step.com_status == 10) {
+                                await $.wait(this.TASK_WAIT_TIME);
+                                await this.taskReceive(task);
+                            }
+                            if (step.com_status == 12) {
+                                await $.wait(this.TASK_WAIT_TIME);
+                                await this.receiveCoin(task);
+                            } else if (step.com_status != 13) {
+                                let num = step.condition < 25 ? (step.condition - step.finish_progress) : 1
+                                let getReward = true;
+                                for (let i = 0; i < num; i++) {
+                                    if (task.title.indexOf('点赞') > -1) {
+                                        let rndIdx = Math.floor(Math.random() * 2000) + 8000
+                                        await $.wait(this.TASK_WAIT_TIME);
+                                        await this.thumbsup(rndIdx);
+                                        await $.wait(this.TASK_WAIT_TIME);
+                                        await this.thumbsup(rndIdx);
+                                    } else if (task.title.indexOf('观看直播') > -1) {
+                                        await $.wait(this.TASK_WAIT_TIME);
+                                        await this.finishLive();
+                                    } else if (task.title.indexOf('关注') > -1) {
+                                        let uid = this.userIdList[i] ? this.userIdList[i] : Math.floor(Math.random() * 100000) + 4900000
+                                        await $.wait(this.TASK_WAIT_TIME);
+                                        await this.doFollow(uid, 1);
+                                        await $.wait(this.TASK_WAIT_TIME);
+                                        await this.doFollow(uid, 2);
+                                    } else {
+                                        getReward = false;
+                                    }
+                                }
+                                if (getReward) {
+                                    await $.wait(this.TASK_WAIT_TIME);
+                                    await this.receiveCoin(task);
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
+            } else {
+                console.log(`查询任务列表失败: ${result.message}`)
+            }
+        } catch (e) {
+            console.log(e)
+        }
+    }
+
+    async taskReceive(task) {
+        try {
+            let param = { 'type': task.type }
+            let url = `https://yingsheng.elecfans.com/ysapi/wapi/activity/task/receive`
+            let body = JSON.stringify(param)
+            let headersParams = this.calculateSign(param, 'yingsheng')
+            let options = {
+                method: 'post',
+                url,
+                headers: {
+                    ...headersParams,
+                    "User-Agent": defaultUserAgent,
+                    "Content-Type": "application/json"
+                },
+                data: body
+            }
+            let { data: result } = await axios.request(options)
+            if (result.code == 0) {
+                console.log(`开始任务[${task.title}]成功`)
+            } else {
+                console.log(`开始任务[${task.title}]失败: ${result.message}`)
+            }
+        } catch (e) {
+            console.log(e)
+        }
+    }
+
+    async receiveCoin(task) {
+        try {
+            let param = { 'type': task.type }
+            let url = `https://yingsheng.elecfans.com/ysapi/wapi/activity/task/receiveCoin`
+            let body = JSON.stringify(param)
+            let headersParams = this.calculateSign(param, 'yingsheng')
+            let options = {
+                method: 'post',
+                url,
+                headers: {
+                    ...headersParams,
+                    "User-Agent": defaultUserAgent,
+                    "Content-Type": "application/json"
+                },
+                data: body
+            }
+            let { data: result } = await axios.request(options)
+            if (result.code == 0) {
+                console.log(`领取任务[${task.title}]奖励获得${result.data.coins}硬币`)
+            } else {
+                console.log(`领取任务[${task.title}]奖励失败: ${result.message}`)
+            }
+        } catch (e) {
+            console.log(e)
+        }
+    }
+
+    async thumbsup(video_id) {
+        try {
+            let param = { 'video_id': video_id }
+            let url = `https://ysapi.elecfans.com/api/video/publish/thumbsup`
+            let body = $.jsonToStr(param, '&')
+            let headersParams = this.calculateSign(param, 'ysapi')
+            let options = {
+                method: 'post',
+                url,
+                headers: {
+                    ...headersParams,
+                    "User-Agent": defaultUserAgent,
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                data: body
+            }
+            let { data: result } = await axios.request(options)
+            if (result.code == 0) {
+                console.log(`${result.data.msg}: video_id=${video_id}`)
+            } else {
+                console.log(`点赞[video_id=${video_id}]失败: ${result.message}`)
+            }
+        } catch (e) {
+            console.log(e)
+        }
+    }
+
+    async viewVideoAdd(step) {
+        try {
+            let param = { 'step': step }
+            let url = `https://ysapi.elecfans.com/api/activity/task/viewVideo/add`
+            let body = $.jsonToStr(param, '&')
+            let headersParams = this.calculateSign(param, 'ysapi')
+            let options = {
+                method: 'post',
+                url,
+                headers: {
+                    ...headersParams,
+                    "User-Agent": defaultUserAgent,
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                data: body
+            }
+            let { data: result } = await axios.request(options)
+            if (result.code == 0) {
+                console.log(`刷新看视频进度[step=${step}]成功`)
+            } else {
+                console.log(`刷新看视频进度[step=${step}]失败: ${result.message}`)
+            }
+        } catch (e) {
+            console.log(e)
+        }
+    }
+
+    async finishLive() {
+        try {
+            let param = {}
+            let url = `https://ysapi.elecfans.com/api/activity/task/live/finish`
+            let headersParams = this.calculateSign(param, 'ysapi')
+            let options = {
+                method: 'post',
+                url,
+                headers: {
+                    ...headersParams,
+                    "User-Agent": defaultUserAgent,
+                },
+                data: ''
+            }
+            let { data: result } = await axios.request(options)
+            if (result.code == 0) {
+                console.log(`完成观看直播任务成功`)
+            } else {
+                console.log(`完成观看直播任务失败: ${result.message}`)
+            }
+        } catch (e) {
+            console.log(e)
+        }
+    }
+
+    async recommendList() {
+        try {
+            let param = { page: 1 }
+            let url = `https://ysapi.elecfans.com/api/recommend/video/index?page=1`
+            let headersParams = this.calculateSign(param, 'ysapi')
+            let options = {
+                method: 'get',
+                url,
+                headers: {
+                    ...headersParams,
+                    "User-Agent": defaultUserAgent,
+                },
+            }
+            let { data: result } = await axios.request(options)
+            if (result.code == 0) {
+                for (let item of result.data.data) {
+                    this.userIdList.push(item.user_id)
+                }
+            } else {
+                console.log(`获取推荐列表失败: ${result.message}`)
+            }
+        } catch (e) {
+            console.log(e)
+        }
+    }
+
+    async doFollow(user_id, type) {
+        try {
+            let param = { 'user_id': user_id, 'type': type }
+            let url = `https://ysapi.elecfans.com/api/member/follow`
+            let body = $.jsonToStr(param, '&')
+            let headersParams = this.calculateSign(param, 'ysapi')
+            let options = {
+                method: 'post',
+                url,
+                headers: {
+                    ...headersParams,
+                    "User-Agent": defaultUserAgent,
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                data: body
+            }
+            let { data: result } = await axios.request(options)
+            let str = type == 1 ? '关注' : '取消关注'
+            if (result.code == 0) {
+                console.log(`${str}用户[${user_id}]成功`)
+            } else {
+                console.log(`${str}用户[${user_id}]失败: ${result.message}`)
+            }
+        } catch (e) {
+            console.log(e)
+        }
     }
 }
-
 
 !(async () => {
     await getNotice()
     $.checkEnv(ckName);
 
     for (let user of $.userList) {
-        //
-
         await new Task(user).run();
-
     }
-
-
 })()
     .catch((e) => console.log(e))
     .finally(() => $.done());
@@ -206,6 +509,3 @@ async function getNotice() {
     $.log(res)
     return res
 }
-
-
-
