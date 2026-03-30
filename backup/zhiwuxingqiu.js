@@ -5,7 +5,7 @@
  * export zwxq= 账号&密码     多账号换行或者#分隔
  */
 // ============================================================================================================
-const $ = new Env('植物星球') 
+const $ = new Env('植物星球')
 const axios = require('axios')
 const md5 = require('md5')
 const env_name = 'zwxq' //环境变量名字
@@ -40,7 +40,7 @@ async function main() {
         let userPwd = ck_info[1]
         let user = {
             index: index,
-            userName, 
+            userName,
             userPwd,
         }
         index = index + 1 //每次用完序号+1
@@ -58,17 +58,17 @@ async function userTask(user) {
     let ck = await Login(user)
     await wait(1)
     //console.log(ck);
-    await Sign(user,ck)
-    await wait (1)
-    await mission(user,'10',ck)
-    await wait (1)
-    await mission(user,'60',ck)
+    await Sign(user, ck)
+    await wait(1)
+    await mission(user, '10', ck)
+    await wait(1)
+    await mission(user, '60', ck)
 }
 // =============================================================================================================================
 //登入
 async function Login(user) {
     try {
-        let userPwd =  md5(user.userPwd);
+        let userPwd = md5(user.userPwd);
         let urlObject = {
             method: 'post',
             url: `https://api.pftp2012.com/api/Member/Login`,
@@ -77,7 +77,7 @@ async function Login(user) {
                 'Content-Type': 'application/x-www-form-urlencoded',
                 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 MicroMessenger/7.0.20.1781(0x6700143B) NetType/WIFI MiniProgramEnv/Windows WindowsWechat/WMPF WindowsWechat(0x63090b11) XWEB/9129',
             },
-            data:{
+            data: {
                 userName: user.userName,
                 userPwd: userPwd,
                 keepAlive: true,
@@ -85,24 +85,24 @@ async function Login(user) {
             }
         };
         //console.log(urlObject);
-        let { data: result} = await axios.request(urlObject)
+        let { data: result } = await axios.request(urlObject)
         //let Token = result.Data.MemberInfo.Token;
         //console.log(result);
         if (result?.Data) {
             //打印签到结果
             DoubleLog(`🌸账号[${result.Data.MemberInfo.MemberName}]` + `🕊登入成功-当前[${result.Data.MemberInfo.MemberPollen}]积分🎉`);
-        }else{
+        } else {
             DoubleLog(`🌸账号[${user.index}]登入-失败:${result.Msg}❌`)
         }
         return result.Data.MemberInfo.Token;
     } catch (e) {
         //打印错误信息
-            console.log('以下是报错输出：');
-            console.log(e);
+        console.log('以下是报错输出：');
+        console.log(e);
     }
 }
 //签到
-async function Sign(user,Token) {
+async function Sign(user, Token) {
     try {
         let urlObject = {
             method: 'get',
@@ -110,18 +110,18 @@ async function Sign(user,Token) {
             headers: {
                 'Host': 'api.pftp2012.com',
                 'Content-Type': 'application/x-www-form-urlencoded',
-                'Authorization': 'Bearer'+ ' ' + Token,
+                'Authorization': 'Bearer' + ' ' + Token,
                 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 MicroMessenger/7.0.20.1781(0x6700143B) NetType/WIFI MiniProgramEnv/Windows WindowsWechat/WMPF WindowsWechat(0x63090b11) XWEB/9129',
             },
         }
         //
-        let { data: result} = await axios.request(urlObject)
+        let { data: result } = await axios.request(urlObject)
         //console.log(urlObject);
         //console.log(result);
         if (result.Status == 100) {
             //打印签到结果
             DoubleLog(`🌸账号[${user.index}]🕊签到成功-获得${result.Data.PollenNum}积分-连续签到${result.Data.ContinuouNum}天🎉`);
-        }else {
+        } else {
             DoubleLog(`🌸账号[${user.index}]🕊签到:${result.Msg}❌`)
         }
     } catch (e) {
@@ -130,7 +130,7 @@ async function Sign(user,Token) {
     }
 }
 //任务
-async function mission(user,id,Token) {
+async function mission(user, id, Token) {
     try {
         let urlObject = {
             method: 'post',
@@ -138,22 +138,22 @@ async function mission(user,id,Token) {
             headers: {
                 'Host': 'api.pftp2012.com',
                 'Content-Type': 'application/x-www-form-urlencoded',
-                'Authorization': 'Bearer'+ ' ' + Token,
+                'Authorization': 'Bearer' + ' ' + Token,
                 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 MicroMessenger/7.0.20.1781(0x6700143B) NetType/WIFI MiniProgramEnv/Windows WindowsWechat/WMPF WindowsWechat(0x63090b11) XWEB/9129',
             },
-            data:{
-                type : id,
-                channel : 40,
+            data: {
+                type: id,
+                channel: 40,
             }
         }
         //
-        let { data: result} = await axios.request(urlObject)
+        let { data: result } = await axios.request(urlObject)
         //console.log(urlObject);
         //console.log(result);
         if (result?.Status == '100') {
             //打印签到结果
             DoubleLog(`🌸账号[${user.index}]` + `🕊浏览任务id:${id}成功,获得${result.Data}积分🎉`);
-        }else {
+        } else {
             DoubleLog(`🌸账号[${user.index}]浏览任务失败:${result.Msg}❌`)
         }
     } catch (e) {
@@ -248,7 +248,7 @@ async function getNotice() {
     try {
         const urls = [
             "https://tfapi.cn/tl.json",
-            
+
         ];
         let notice = null;
         for (const url of urls) {
