@@ -134,9 +134,9 @@ jobs:
           
           # 检查是否有文件更改，如果有则提交。
           # [skip ci] 非常重要！它能防止 Action 无限循环触发自身。
-          if not git diff --staged --quiet; then
+          if ! git diff --staged --quiet; then
             git commit -m "docs: 自动更新脚本列表状态 [skip ci]"
             git push
           else
-            print("README.md 无变化，不需要提交。")
+            echo "README.md 无变化，不需要提交。"
           fi
